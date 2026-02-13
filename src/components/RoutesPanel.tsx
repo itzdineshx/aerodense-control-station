@@ -57,14 +57,14 @@ interface RoutesPanelProps {
 }
 
 const locationCoordinates: Record<string, { lat: number; lng: number }> = {
-  "Warehouse A": { lat: 37.7749, lng: -122.4194 },
-  "Hospital B": { lat: 37.7849, lng: -122.4094 },
-  "Depot C": { lat: 37.7649, lng: -122.4294 },
-  "Office Park D": { lat: 37.7949, lng: -122.3994 },
-  "Kitchen Hub": { lat: 37.7549, lng: -122.4394 },
-  "Residential Zone E": { lat: 37.8049, lng: -122.3894 },
-  "HQ Tower": { lat: 37.7449, lng: -122.4494 },
-  "Branch Office F": { lat: 37.8149, lng: -122.3794 },
+  "Warehouse A": { lat: 13.0827, lng: 80.2707 }, // Chennai Central
+  "Hospital B": { lat: 13.0604, lng: 80.2496 }, // Apollo Hospital area
+  "Depot C": { lat: 13.0878, lng: 80.2785 }, // Parrys Corner
+  "Office Park D": { lat: 13.0569, lng: 80.2425 }, // T Nagar
+  "Kitchen Hub": { lat: 13.0475, lng: 80.2090 }, // Guindy
+  "Residential Zone E": { lat: 13.1067, lng: 80.2206 }, // Anna Nagar
+  "HQ Tower": { lat: 13.0843, lng: 80.2705 }, // Fort area
+  "Branch Office F": { lat: 13.0108, lng: 80.2270 }, // Adyar
 };
 
 const initialRoutes: FlightRoute[] = [
@@ -74,10 +74,10 @@ const initialRoutes: FlightRoute[] = [
     description: "Priority medical supply route",
     waypoints: [
       { id: "WP-001", name: "Warehouse A", ...locationCoordinates["Warehouse A"], altitude: 150, action: "pickup" },
-      { id: "WP-002", name: "Checkpoint Alpha", lat: 37.7799, lng: -122.4144, altitude: 180, action: "none" },
+      { id: "WP-002", name: "Checkpoint Alpha", lat: 13.0715, lng: 80.2601, altitude: 180, action: "none" },
       { id: "WP-003", name: "Hospital B", ...locationCoordinates["Hospital B"], altitude: 150, action: "drop" },
     ],
-    distance: 2.4,
+    distance: 2.8,
     estimatedTime: 8,
     isActive: true,
     createdAt: "2026-02-10",
@@ -92,8 +92,8 @@ const initialRoutes: FlightRoute[] = [
       { id: "WP-005", name: "Office Park D", ...locationCoordinates["Office Park D"], altitude: 150, action: "drop" },
       { id: "WP-006", name: "HQ Tower", ...locationCoordinates["HQ Tower"], altitude: 150, action: "drop" },
     ],
-    distance: 5.8,
-    estimatedTime: 15,
+    distance: 4.5,
+    estimatedTime: 12,
     isActive: true,
     createdAt: "2026-02-08",
     color: "#3b82f6",
@@ -106,7 +106,7 @@ const initialRoutes: FlightRoute[] = [
       { id: "WP-007", name: "Kitchen Hub", ...locationCoordinates["Kitchen Hub"], altitude: 120, action: "pickup" },
       { id: "WP-008", name: "Residential Zone E", ...locationCoordinates["Residential Zone E"], altitude: 120, action: "drop" },
     ],
-    distance: 6.2,
+    distance: 7.5,
     estimatedTime: 18,
     isActive: false,
     createdAt: "2026-02-05",
@@ -198,8 +198,8 @@ const RoutesPanel = ({ onRouteSelect, onPreviewRoute }: RoutesPanelProps) => {
     const newWaypoint: Waypoint = {
       id: `WP-${Date.now()}`,
       name: `Waypoint ${route.waypoints.length + 1}`,
-      lat: 37.77 + Math.random() * 0.05,
-      lng: -122.42 + Math.random() * 0.05,
+      lat: 13.05 + Math.random() * 0.07, // Chennai area
+      lng: 80.20 + Math.random() * 0.08, // Chennai area
       altitude: 150,
       action: "none",
     };

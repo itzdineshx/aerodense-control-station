@@ -5,20 +5,24 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import type { MissionState } from "@/hooks/useSimulation";
 import type { Order } from "@/components/OrdersPanel";
 
+// Chennai area coordinates for drone delivery locations
 const locationCoordinates: Record<string, { lat: number; lng: number }> = {
-  "Warehouse A": { lat: 37.7749, lng: -122.4194 },
-  "Hospital B": { lat: 37.7849, lng: -122.4094 },
-  "Depot C": { lat: 37.7649, lng: -122.4294 },
-  "Office Park D": { lat: 37.7949, lng: -122.3994 },
-  "Kitchen Hub": { lat: 37.7549, lng: -122.4394 },
-  "Residential Zone E": { lat: 37.8049, lng: -122.3894 },
-  "HQ Tower": { lat: 37.7449, lng: -122.4494 },
-  "Branch Office F": { lat: 37.8149, lng: -122.3794 },
-  "Lab Center G": { lat: 37.7349, lng: -122.4594 },
-  "Research Facility H": { lat: 37.7249, lng: -122.4694 },
-  "Factory I": { lat: 37.8249, lng: -122.3694 },
-  "Maintenance Bay J": { lat: 37.8349, lng: -122.3594 },
+  "Warehouse A": { lat: 13.0827, lng: 80.2707 }, // Chennai Central
+  "Hospital B": { lat: 13.0604, lng: 80.2496 }, // Apollo Hospital area
+  "Depot C": { lat: 13.0878, lng: 80.2785 }, // Parrys Corner
+  "Office Park D": { lat: 13.0569, lng: 80.2425 }, // T Nagar
+  "Kitchen Hub": { lat: 13.0475, lng: 80.2090 }, // Guindy
+  "Residential Zone E": { lat: 13.1067, lng: 80.2206 }, // Anna Nagar
+  "HQ Tower": { lat: 13.0843, lng: 80.2705 }, // Fort area
+  "Branch Office F": { lat: 13.0108, lng: 80.2270 }, // Adyar
+  "Lab Center G": { lat: 13.0127, lng: 80.2351 }, // IIT Madras area
+  "Research Facility H": { lat: 13.0674, lng: 80.2376 }, // Nungambakkam
+  "Factory I": { lat: 13.1143, lng: 80.1548 }, // Ambattur
+  "Maintenance Bay J": { lat: 13.0358, lng: 80.1790 }, // Porur
 };
+
+// Chennai fallback coordinates
+const CHENNAI_COORDS = { lat: 13.0827, lng: 80.2707 };
 
 interface MapViewProps {
   mission: MissionState;
@@ -29,11 +33,38 @@ interface MapViewProps {
 
 const MapView = ({ mission, isFlying, className, selectedOrder }: MapViewProps) => {
   const [viewState, setViewState] = useState({
-    longitude: -122.4194,
-    latitude: 37.7749,
+    longitude: CHENNAI_COORDS.lng,
+    latitude: CHENNAI_COORDS.lat,
     zoom: 12,
   });
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
+  const [locationInitialized, setLocationInitialized] = useState(false);
+
+  // Get device GPS location, fallback to Chennai
+  useEffect(() => {
+    if (locationInitialized) return;
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setViewState((prev) => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }));
+          setLocationInitialized(true);
+        },
+        (error) => {
+          console.warn("Geolocation failed, using Chennai as fallback:", error.message);
+          setLocationInitialized(true);
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
+    } else {
+      console.warn("Geolocation not supported, using Chennai as fallback");
+      setLocationInitialized(true);
+    }
+  }, [locationInitialized]);
 
   // Calculate current position along route
   const currentPos = isFlying && mission.route.length > 0
