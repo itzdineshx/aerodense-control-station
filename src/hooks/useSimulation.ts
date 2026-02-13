@@ -227,6 +227,32 @@ export function useSimulation() {
     };
   }, [activeMissionOrderId]);
 
+  // Emergency stop - immediately halt the aircraft
+  const emergencyStop = useCallback(() => {
+    if (!activeMissionOrderId) return;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === activeMissionOrderId ? { ...o, status: "Pending" as const } : o
+      )
+    );
+    setAircraft((prev) => ({ ...prev, status: "Idle", payloadWeight: 0 }));
+    setMission(initialMission);
+    setActiveMissionOrderId(null);
+  }, [activeMissionOrderId]);
+
+  // Return to home - gracefully end mission
+  const returnHome = useCallback(() => {
+    if (!activeMissionOrderId) return;
+    // Speed up mission completion
+    setMission((prev) => ({ ...prev, progress: 95 }));
+  }, [activeMissionOrderId]);
+
+  // Toggle camera on/off
+  const toggleCamera = useCallback(() => {
+    setAircraft((prev) => ({ ...prev, cameraActive: !prev.cameraActive }));
+  }, []);
+
   return {
     orders,
     aircraft,
@@ -236,5 +262,8 @@ export function useSimulation() {
     rejectOrder,
     startMission,
     addOrder,
+    emergencyStop,
+    returnHome,
+    toggleCamera,
   };
 }
