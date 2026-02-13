@@ -5,6 +5,10 @@ import OrdersPanel from "@/components/OrdersPanel";
 import MapView from "@/components/MapView";
 import MissionPanel from "@/components/MissionPanel";
 import AIAssistant from "@/components/AIAssistant";
+import AircraftPanel from "@/components/AircraftPanel";
+import PilotPanel from "@/components/PilotPanel";
+import RoutesPanel from "@/components/RoutesPanel";
+import SystemPanel from "@/components/SystemPanel";
 import type { Order } from "@/components/OrdersPanel";
 import { useSimulation } from "@/hooks/useSimulation";
 
@@ -21,6 +25,9 @@ const Index = () => {
     rejectOrder,
     startMission,
     addOrder,
+    emergencyStop,
+    returnHome,
+    toggleCamera,
   } = useSimulation();
 
   // Keep selectedOrder in sync with simulation state
@@ -43,6 +50,64 @@ const Index = () => {
               className="flex-1"
               selectedOrder={currentSelectedOrder}
             />
+          ) : activeModule === "aircraft" ? (
+            <>
+              <div className="w-80 border-r border-border">
+                <AircraftPanel
+                  aircraft={aircraft}
+                  mission={mission}
+                  isFlying={!!activeMissionOrderId}
+                  onEmergencyStop={emergencyStop}
+                  onReturnHome={returnHome}
+                  onToggleCamera={toggleCamera}
+                />
+              </div>
+              <MapView
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                className="flex-1"
+                selectedOrder={currentSelectedOrder}
+              />
+            </>
+          ) : activeModule === "pilot" ? (
+            <>
+              <div className="w-80 border-r border-border">
+                <PilotPanel
+                  isFlying={!!activeMissionOrderId}
+                  activeMissionOrderId={activeMissionOrderId}
+                />
+              </div>
+              <MapView
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                className="flex-1"
+                selectedOrder={currentSelectedOrder}
+              />
+            </>
+          ) : activeModule === "routes" ? (
+            <>
+              <div className="w-80 border-r border-border">
+                <RoutesPanel />
+              </div>
+              <MapView
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                className="flex-1"
+                selectedOrder={currentSelectedOrder}
+              />
+            </>
+          ) : activeModule === "system" ? (
+            <>
+              <div className="w-80 border-r border-border">
+                <SystemPanel aircraft={aircraft} />
+              </div>
+              <MapView
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                className="flex-1"
+                selectedOrder={currentSelectedOrder}
+              />
+            </>
           ) : (
             <>
               <div className="w-72 border-r border-border">
