@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import SystemStatusBar from "@/components/SystemStatusBar";
 import OrdersPanel from "@/components/OrdersPanel";
@@ -10,12 +10,14 @@ import PilotPanel from "@/components/PilotPanel";
 import RoutesPanel from "@/components/RoutesPanel";
 import SystemPanel from "@/components/SystemPanel";
 import SimulationPanel from "@/components/SimulationPanel";
+import CameraFullscreenPane from "@/components/CameraFullscreenPane";
 import type { Order } from "@/components/OrdersPanel";
 import { useSimulation } from "@/hooks/useSimulation";
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState("orders");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isCameraFullscreen, setIsCameraFullscreen] = useState(false);
 
   const {
     orders,
@@ -56,6 +58,12 @@ const Index = () => {
       }
     : null;
 
+  useEffect(() => {
+    if (activeModule !== "aircraft") {
+      setIsCameraFullscreen(false);
+    }
+  }, [activeModule]);
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <DashboardSidebar activeModule={activeModule} onModuleChange={setActiveModule} />
@@ -82,15 +90,26 @@ const Index = () => {
                   onEmergencyStop={emergencyStop}
                   onReturnHome={returnHome}
                   onToggleCamera={toggleCamera}
+                  onOpenCameraFullscreen={() => setIsCameraFullscreen(true)}
+                  onCloseCameraFullscreen={() => setIsCameraFullscreen(false)}
+                  isCameraFullscreen={isCameraFullscreen}
                 />
               </div>
-              <MapView
-                mission={mission}
-                isFlying={!!activeMissionOrderId}
-                className="flex-1"
-                selectedOrder={currentSelectedOrder}
-                routeCommands={routeCommands}
-              />
+              {isCameraFullscreen ? (
+                <CameraFullscreenPane
+                  aircraft={aircraft}
+                  onToggleCamera={toggleCamera}
+                  onBackToMap={() => setIsCameraFullscreen(false)}
+                />
+              ) : (
+                <MapView
+                  mission={mission}
+                  isFlying={!!activeMissionOrderId}
+                  className="flex-1"
+                  selectedOrder={currentSelectedOrder}
+                  routeCommands={routeCommands}
+                />
+              )}
             </>
           ) : activeModule === "pilot" ? (
             <>

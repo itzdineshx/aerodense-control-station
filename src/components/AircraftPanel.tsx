@@ -18,11 +18,14 @@ import {
   MapPin,
   Clock,
   Zap,
+  Maximize2,
+  Map,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import type { AircraftState, MissionState } from "@/hooks/useSimulation";
+import { buildCameraSourceCandidates } from "@/lib/cameraStream";
 
 interface AircraftPanelProps {
   aircraft: AircraftState;
@@ -31,6 +34,9 @@ interface AircraftPanelProps {
   onEmergencyStop?: () => void;
   onReturnHome?: () => void;
   onToggleCamera?: () => void;
+  onOpenCameraFullscreen?: () => void;
+  onCloseCameraFullscreen?: () => void;
+  isCameraFullscreen?: boolean;
 }
 
 interface TelemetryItemProps {
@@ -40,59 +46,6 @@ interface TelemetryItemProps {
   unit?: string;
   status?: "normal" | "warning" | "danger";
 }
-
-const CAMERA_FALLBACK_PATHS = ["/video", "/stream", "/mjpeg", "/video_feed"];
-
-const ensureHttpProtocol = (raw: string): string => {
-  if (!raw) return "";
-  return /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
-};
-
-const stripTrailingSlash = (raw: string): string => raw.replace(/\/+$/, "");
-
-const buildCameraSourceCandidates = (cameraStreamUrl: string, cameraIp: string): string[] => {
-  const candidates: string[] = [];
-
-  const addCandidate = (value: string) => {
-    const normalized = value.trim();
-    if (!normalized || candidates.includes(normalized)) return;
-    candidates.push(normalized);
-  };
-
-  const normalizedStreamUrl = ensureHttpProtocol(cameraStreamUrl.trim());
-  if (normalizedStreamUrl) {
-    addCandidate(normalizedStreamUrl);
-
-    try {
-      const parsed = new URL(normalizedStreamUrl);
-      const base = `${parsed.protocol}//${parsed.host}`;
-      const isRootPath = !parsed.pathname || parsed.pathname === "/";
-
-      if (isRootPath) {
-        CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${base}${path}`));
-      }
-
-      if (parsed.protocol === "https:") {
-        const insecureBase = `http://${parsed.host}`;
-        addCandidate(normalizedStreamUrl.replace(/^https:\/\//i, "http://"));
-        if (isRootPath) {
-          CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${insecureBase}${path}`));
-        }
-      }
-    } catch {
-      // Keep the original value if URL parsing fails.
-    }
-  }
-
-  const normalizedCameraIp = ensureHttpProtocol(cameraIp.trim());
-  if (normalizedCameraIp) {
-    const base = stripTrailingSlash(normalizedCameraIp);
-    addCandidate(base);
-    CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${base}${path}`));
-  }
-
-  return candidates;
-};
 
 const TelemetryItem = ({ icon: Icon, label, value, unit, status = "normal" }: TelemetryItemProps) => {
   const statusColors = {
@@ -121,6 +74,9 @@ const AircraftPanel = ({
   onEmergencyStop,
   onReturnHome,
   onToggleCamera,
+  onOpenCameraFullscreen,
+  onCloseCameraFullscreen,
+  isCameraFullscreen = false,
 }: AircraftPanelProps) => {
   const [selectedAircraft] = useState("AeroSense-01");
   const [cameraStreamError, setCameraStreamError] = useState(false);
@@ -183,6 +139,14 @@ const AircraftPanel = ({
     setCameraStreamError(true);
   };
 
+  const handleCameraFullscreen = () => {
+    if (isCameraFullscreen) {
+      onCloseCameraFullscreen?.();
+      return;
+    }
+    onOpenCameraFullscreen?.();
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -220,7 +184,7 @@ const AircraftPanel = ({
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar p-4 space-y-4">
         {/* Battery & Power Section */}
         <div className="aero-panel p-3">
           <h3 className="text-xs font-semibold text-foreground mb-3 flex items-center gap-1.5">
@@ -383,17 +347,43 @@ const AircraftPanel = ({
                 )}
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleToggleCamera}
-              className="h-7 text-xs"
-            >
-              {aircraft.cameraActive ? "Stop" : "Start"}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleToggleCamera}
+                className="h-7 text-xs"
+              >
+                {aircraft.cameraActive ? "Stop" : "Start"}
+              </Button>
+              <Button
+                size="sm"
+                variant={isCameraFullscreen ? "secondary" : "outline"}
+                onClick={handleCameraFullscreen}
+                className="h-7 text-xs"
+              >
+                {isCameraFullscreen ? (
+                  <>
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Full
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           {aircraft.cameraActive && (
-            <div className="mt-2 rounded bg-black/70 border border-border/40 overflow-hidden aspect-video">
+            <div
+              className={`mt-2 rounded bg-black/70 border border-border/40 overflow-hidden aspect-video ${
+                isCameraFullscreen ? "ring-1 ring-aero-cyan/40" : "cursor-zoom-in"
+              }`}
+              onClick={!isCameraFullscreen ? onOpenCameraFullscreen : undefined}
+              role={!isCameraFullscreen ? "button" : undefined}
+            >
               {!hasCameraSource ? (
                 <div className="h-full w-full flex items-center justify-center px-3 text-center text-[11px] text-muted-foreground">
                   Add VITE_AIRCRAFT_CAMERA_IP in .env to load the live feed.
