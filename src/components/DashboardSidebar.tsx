@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Package, MapPin, Shield, Radio, Navigation, Route, Activity,
-  ChevronLeft, ChevronRight, Plane, Sparkles
+  ChevronLeft, ChevronRight, Plane, Sparkles, PlayCircle
 } from "lucide-react";
 
 interface NavItem {
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { icon: Radio, label: "Aircraft", id: "aircraft" },
   { icon: Navigation, label: "Pilot", id: "pilot" },
   { icon: Route, label: "Routes", id: "routes" },
+  { icon: PlayCircle, label: "Simulation", id: "simulation" },
   { icon: Activity, label: "System", id: "system" },
 ];
 

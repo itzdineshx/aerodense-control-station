@@ -49,24 +49,64 @@ const SystemStatusBar = ({ aircraft }: SystemStatusBarProps) => {
   useEffect(() => {
     const CHENNAI_COORDS = { lat: 13.0827, lng: 80.2707 };
 
-    if ("geolocation" in navigator) {
+    let cancelled = false;
+    const applyFallback = () => {
+      if (cancelled) return;
+      setLocation(CHENNAI_COORDS);
+    };
+
+    if (!("geolocation" in navigator)) {
+      applyFallback();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const requestCurrentPosition = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (cancelled) return;
           setLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
         },
         (error) => {
-          console.warn("Geolocation failed, using Chennai as fallback:", error.message);
-          setLocation(CHENNAI_COORDS);
+          // Permission denial is expected if user blocks location; keep fallback silent.
+          if (error.code !== error.PERMISSION_DENIED) {
+            console.info("SystemStatusBar geolocation unavailable, using Chennai fallback:", error.message);
+          }
+          applyFallback();
         },
         { timeout: 10000, enableHighAccuracy: true }
       );
-    } else {
-      console.warn("Geolocation not supported, using Chennai as fallback");
-      setLocation(CHENNAI_COORDS);
+    };
+
+    if (!navigator.permissions?.query) {
+      requestCurrentPosition();
+      return () => {
+        cancelled = true;
+      };
     }
+
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((status) => {
+        if (cancelled) return;
+        if (status.state === "denied") {
+          applyFallback();
+          return;
+        }
+        requestCurrentPosition();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        requestCurrentPosition();
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch weather from Open-Meteo API using device GPS or Chennai fallback

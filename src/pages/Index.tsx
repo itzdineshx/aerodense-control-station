@@ -9,6 +9,7 @@ import AircraftPanel from "@/components/AircraftPanel";
 import PilotPanel from "@/components/PilotPanel";
 import RoutesPanel from "@/components/RoutesPanel";
 import SystemPanel from "@/components/SystemPanel";
+import SimulationPanel from "@/components/SimulationPanel";
 import type { Order } from "@/components/OrdersPanel";
 import { useSimulation } from "@/hooks/useSimulation";
 
@@ -21,18 +22,38 @@ const Index = () => {
     aircraft,
     mission,
     activeMissionOrderId,
+    droneFleet,
+    selectedDrone,
+    simulationInput,
+    routeCommands,
+    commandLog,
+    mqttState,
+    simulationLocations,
     approveOrder,
     rejectOrder,
     startMission,
+    runAutomatedSimulation,
     addOrder,
     emergencyStop,
     returnHome,
     toggleCamera,
+    clearCommandLog,
   } = useSimulation();
 
   // Keep selectedOrder in sync with simulation state
   const currentSelectedOrder = selectedOrder
     ? orders.find((o) => o.id === selectedOrder.id) || null
+    : null;
+
+  const simulationPreviewOrder: Order | null = simulationInput
+    ? {
+        id: "SIM-AUTO",
+        packageType: simulationInput.packageType,
+        weight: `${simulationInput.weightKg.toFixed(1)} kg`,
+        pickup: simulationInput.pickup,
+        delivery: simulationInput.delivery,
+        status: activeMissionOrderId?.startsWith("SIM-") ? "In Flight" : "Approved",
+      }
     : null;
 
   return (
@@ -49,6 +70,7 @@ const Index = () => {
               isFlying={!!activeMissionOrderId}
               className="flex-1"
               selectedOrder={currentSelectedOrder}
+              routeCommands={routeCommands}
             />
           ) : activeModule === "aircraft" ? (
             <>
@@ -67,6 +89,7 @@ const Index = () => {
                 isFlying={!!activeMissionOrderId}
                 className="flex-1"
                 selectedOrder={currentSelectedOrder}
+                routeCommands={routeCommands}
               />
             </>
           ) : activeModule === "pilot" ? (
@@ -82,6 +105,7 @@ const Index = () => {
                 isFlying={!!activeMissionOrderId}
                 className="flex-1"
                 selectedOrder={currentSelectedOrder}
+                routeCommands={routeCommands}
               />
             </>
           ) : activeModule === "routes" ? (
@@ -94,6 +118,7 @@ const Index = () => {
                 isFlying={!!activeMissionOrderId}
                 className="flex-1"
                 selectedOrder={currentSelectedOrder}
+                routeCommands={routeCommands}
               />
             </>
           ) : activeModule === "system" ? (
@@ -106,6 +131,30 @@ const Index = () => {
                 isFlying={!!activeMissionOrderId}
                 className="flex-1"
                 selectedOrder={currentSelectedOrder}
+                routeCommands={routeCommands}
+              />
+            </>
+          ) : activeModule === "simulation" ? (
+            <>
+              <SimulationPanel
+                locations={simulationLocations}
+                droneFleet={droneFleet}
+                selectedDrone={selectedDrone}
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                routeCommands={routeCommands}
+                commandLog={commandLog}
+                mqttState={mqttState}
+                onRunSimulation={runAutomatedSimulation}
+                onEmergencyStop={emergencyStop}
+                onClearLog={clearCommandLog}
+              />
+              <MapView
+                mission={mission}
+                isFlying={!!activeMissionOrderId}
+                className="flex-1"
+                selectedOrder={simulationPreviewOrder || currentSelectedOrder}
+                routeCommands={routeCommands}
               />
             </>
           ) : (
@@ -124,6 +173,7 @@ const Index = () => {
                   mission={mission}
                   isFlying={!!activeMissionOrderId}
                   selectedOrder={currentSelectedOrder}
+                  routeCommands={routeCommands}
                 />
               </div>
 

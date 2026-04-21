@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Radio,
   Battery,
@@ -41,6 +41,59 @@ interface TelemetryItemProps {
   status?: "normal" | "warning" | "danger";
 }
 
+const CAMERA_FALLBACK_PATHS = ["/video", "/stream", "/mjpeg", "/video_feed"];
+
+const ensureHttpProtocol = (raw: string): string => {
+  if (!raw) return "";
+  return /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
+};
+
+const stripTrailingSlash = (raw: string): string => raw.replace(/\/+$/, "");
+
+const buildCameraSourceCandidates = (cameraStreamUrl: string, cameraIp: string): string[] => {
+  const candidates: string[] = [];
+
+  const addCandidate = (value: string) => {
+    const normalized = value.trim();
+    if (!normalized || candidates.includes(normalized)) return;
+    candidates.push(normalized);
+  };
+
+  const normalizedStreamUrl = ensureHttpProtocol(cameraStreamUrl.trim());
+  if (normalizedStreamUrl) {
+    addCandidate(normalizedStreamUrl);
+
+    try {
+      const parsed = new URL(normalizedStreamUrl);
+      const base = `${parsed.protocol}//${parsed.host}`;
+      const isRootPath = !parsed.pathname || parsed.pathname === "/";
+
+      if (isRootPath) {
+        CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${base}${path}`));
+      }
+
+      if (parsed.protocol === "https:") {
+        const insecureBase = `http://${parsed.host}`;
+        addCandidate(normalizedStreamUrl.replace(/^https:\/\//i, "http://"));
+        if (isRootPath) {
+          CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${insecureBase}${path}`));
+        }
+      }
+    } catch {
+      // Keep the original value if URL parsing fails.
+    }
+  }
+
+  const normalizedCameraIp = ensureHttpProtocol(cameraIp.trim());
+  if (normalizedCameraIp) {
+    const base = stripTrailingSlash(normalizedCameraIp);
+    addCandidate(base);
+    CAMERA_FALLBACK_PATHS.forEach((path) => addCandidate(`${base}${path}`));
+  }
+
+  return candidates;
+};
+
 const TelemetryItem = ({ icon: Icon, label, value, unit, status = "normal" }: TelemetryItemProps) => {
   const statusColors = {
     normal: "text-aero-success",
@@ -70,10 +123,28 @@ const AircraftPanel = ({
   onToggleCamera,
 }: AircraftPanelProps) => {
   const [selectedAircraft] = useState("AeroSense-01");
+  const [cameraStreamError, setCameraStreamError] = useState(false);
+  const [cameraStreamNonce, setCameraStreamNonce] = useState(0);
+  const [cameraSourceCandidates, setCameraSourceCandidates] = useState<string[]>(() =>
+    buildCameraSourceCandidates(aircraft.cameraStreamUrl, aircraft.cameraIp)
+  );
+  const [cameraSourceIndex, setCameraSourceIndex] = useState(0);
 
   // Calculate status colors
   const batteryStatus = aircraft.battery > 50 ? "normal" : aircraft.battery > 20 ? "warning" : "danger";
   const signalStatus = aircraft.signal > 80 ? "normal" : aircraft.signal > 50 ? "warning" : "danger";
+  const activeCameraSource = cameraSourceCandidates[cameraSourceIndex] ?? "";
+  const hasCameraSource = activeCameraSource.length > 0;
+  const cameraStreamSrc = hasCameraSource
+    ? `${activeCameraSource}${activeCameraSource.includes("?") ? "&" : "?"}streamNonce=${cameraStreamNonce}`
+    : "";
+
+  useEffect(() => {
+    const candidates = buildCameraSourceCandidates(aircraft.cameraStreamUrl, aircraft.cameraIp);
+    setCameraSourceCandidates(candidates);
+    setCameraSourceIndex(0);
+    setCameraStreamError(false);
+  }, [aircraft.cameraIp, aircraft.cameraStreamUrl]);
 
   // Simulated environmental data
   const temperature = 22 + Math.random() * 3;
@@ -84,6 +155,32 @@ const AircraftPanel = ({
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const handleToggleCamera = () => {
+    const candidates = buildCameraSourceCandidates(aircraft.cameraStreamUrl, aircraft.cameraIp);
+    setCameraSourceCandidates(candidates);
+    setCameraSourceIndex(0);
+    setCameraStreamError(false);
+    setCameraStreamNonce((prev) => prev + 1);
+    onToggleCamera?.();
+  };
+
+  const handleRetryCameraStream = () => {
+    setCameraSourceIndex(0);
+    setCameraStreamError(false);
+    setCameraStreamNonce((prev) => prev + 1);
+  };
+
+  const handleCameraStreamError = () => {
+    if (cameraSourceIndex < cameraSourceCandidates.length - 1) {
+      setCameraSourceIndex((prev) => prev + 1);
+      setCameraStreamError(false);
+      setCameraStreamNonce((prev) => prev + 1);
+      return;
+    }
+
+    setCameraStreamError(true);
   };
 
   return (
@@ -261,31 +358,62 @@ const AircraftPanel = ({
             <Camera className="h-3 w-3 text-muted-foreground" />
             Camera System
           </h3>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               {aircraft.cameraActive ? (
                 <Video className="h-4 w-4 text-aero-success" />
               ) : (
                 <VideoOff className="h-4 w-4 text-aero-danger" />
               )}
-              <span className="text-xs text-muted-foreground">
-                {aircraft.cameraActive ? "Recording • 4K 60fps" : "Camera Off"}
-              </span>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">
+                  {aircraft.cameraActive
+                    ? hasCameraSource
+                      ? "Live stream connecting"
+                      : "Camera IP not configured"
+                    : "Camera Off"}
+                </div>
+                <div className="text-[10px] text-muted-foreground/80 truncate" title={activeCameraSource || "Set VITE_AIRCRAFT_CAMERA_IP in .env"}>
+                  Source: {activeCameraSource || "Set VITE_AIRCRAFT_CAMERA_IP in .env"}
+                </div>
+                {cameraSourceCandidates.length > 1 && cameraSourceIndex > 0 && (
+                  <div className="text-[10px] text-aero-warning">
+                    Trying fallback source {cameraSourceIndex + 1}/{cameraSourceCandidates.length}
+                  </div>
+                )}
+              </div>
             </div>
             <Button
               size="sm"
               variant="outline"
-              onClick={onToggleCamera}
+              onClick={handleToggleCamera}
               className="h-7 text-xs"
             >
               {aircraft.cameraActive ? "Stop" : "Start"}
             </Button>
           </div>
           {aircraft.cameraActive && (
-            <div className="mt-2 p-2 rounded bg-black/50 aspect-video flex items-center justify-center">
-              <div className="text-[10px] text-aero-cyan font-mono">
-                LIVE FEED • {new Date().toLocaleTimeString()}
-              </div>
+            <div className="mt-2 rounded bg-black/70 border border-border/40 overflow-hidden aspect-video">
+              {!hasCameraSource ? (
+                <div className="h-full w-full flex items-center justify-center px-3 text-center text-[11px] text-muted-foreground">
+                  Add VITE_AIRCRAFT_CAMERA_IP in .env to load the live feed.
+                </div>
+              ) : cameraStreamError ? (
+                <div className="h-full w-full flex flex-col items-center justify-center gap-2 px-3 text-center">
+                  <span className="text-[11px] text-aero-danger">Unable to load camera stream from the configured IP.</span>
+                  <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={handleRetryCameraStream}>
+                    Retry Stream
+                  </Button>
+                </div>
+              ) : (
+                <img
+                  src={cameraStreamSrc}
+                  alt="Aircraft live camera stream"
+                  className="h-full w-full object-cover"
+                  onLoad={() => setCameraStreamError(false)}
+                  onError={handleCameraStreamError}
+                />
+              )}
             </div>
           )}
         </div>
